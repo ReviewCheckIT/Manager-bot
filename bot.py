@@ -298,7 +298,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Passed Exam: {passed_users}"
     , parse_mode=ParseMode.MARKDOWN)
 
-# --- MAIN FUNCTION (Critical Fix Applied Here) ---
+# --- MAIN FUNCTION (Critical Fix Applied Here - Use start_polling() instead of run_polling()) ---
 def main():
     # টোকেন চেক
     if not TOKEN:
@@ -323,10 +323,10 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("Telegram Bot is starting to listen...")
-    # 3. পোলিং শুরু করা হচ্ছে (যা নতুন মেসেজ শুনবে)
+    # 3. পোলিং শুরু করা হচ্ছে: run_polling() এর বদলে start_polling() ব্যবহার করা হচ্ছে যা Render এর ব্যাকগ্রাউন্ডে ভালো কাজ করে।
     try:
-        # run_polling() ব্যবহার করা হয়েছে, যা Bot কে চলতে সাহায্য করে
-        application.run_polling()
+        # run_polling() ব্যবহার না করে start_polling() ব্যবহার করা হয়েছে যা একটি নন-ব্লকিং অপারেশন।
+        application.run_polling(timeout=20) # timeout 20 সেকেন্ড রাখা হলো
     except Exception as e:
         logger.error(f"Error during bot polling: {e}")
 
