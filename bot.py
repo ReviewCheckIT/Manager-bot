@@ -1,10 +1,10 @@
 import os
 import logging
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
+from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from rapidfuzz.fuzz import token_set_ratio # FIX: Changed from fuzzywuzzy to rapidfuzz
+from rapidfuzz.fuzz import token_set_ratio # Stable library for fuzzy matching
 from flask import Flask
 import threading
 
@@ -27,6 +27,7 @@ def home():
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
+    # Flask রিকোয়েস্ট হ্যান্ডেল করার জন্য
     app.run(host='0.0.0.0', port=port)
 
 # --- LOGGING ---
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 # --- GLOBAL VARIABLES ---
 bot_config = {
-    "video_link": "https://www.youtube.com/", # এডমিন /setvideo দিয়ে এটি পরিবর্তন করবে
+    "video_link": "https://www.youtube.com/", 
     "video_text": "আমাদের গ্রুপে নতুন তাই ভিডিওটি সম্পূর্ণ দেখুন। ভিডিওটি দেখার শেষ হলে, এই বটটিতে গিয়ে 'IT' লিখে সকল প্রশ্নের উত্তর দিবেন।",
     
     # বিস্তারিত শর্তাবলী
@@ -96,7 +97,7 @@ Admin™<<<<<👈
 """,
     
     "final_phrase": "ইনশাআল্লাহ আমি পারবো",
-    "form_link": "https://forms.google.com/your-form-link", # ফর্মের প্রকৃত লিংক এখানে বসবে
+    "form_link": "https://forms.google.com/your-form-link", 
 }
 
 FORM_NOTICE_TEXT = f"""
@@ -114,7 +115,7 @@ FORM_NOTICE_TEXT = f"""
 📩 — Skyzone IT | Admin
 """
 
-# --- QUESTIONS DB (No Change in questions/answers) ---
+# --- QUESTIONS DB ---
 questions_db = [
     {"id": 1, "q": "1️⃣ আপনি কি ভিডিওটি সম্পূর্ণ মনোযোগ দিয়ে দেখেছেন?", "a": ["hea", "ji", "yes", "ha", "ho", "dekhsi"], "threshold": 70},
     {"id": 2, "q": "2️⃣ ভিডিও দেখে আপনি কী বুঝেছেন?", "a": ["Kivabe app use Korte hobe", "Facebook e post kore user k telegram e aina", "review apnder app e submit dite hobe", "marketing korbo", "apps review"], "threshold": 50},
@@ -138,13 +139,9 @@ def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 def check_answer_ai(user_text, expected_answers, threshold):
-    """
-    FIX: rapidfuzz ব্যবহার করে উত্তর যাচাই করে।
-    এটি AI পর্যবেক্ষণ হিসেবে কাজ করে।
-    """
+    """rapidfuzz ব্যবহার করে উত্তর যাচাই করে।"""
     best_score = 0
     for ans in expected_answers:
-        # rapidfuzz এর token_set_ratio ব্যবহার
         score = token_set_ratio(user_text.lower(), ans.lower())
         if score > best_score:
             best_score = score
@@ -235,7 +232,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 4. শর্ত ও ফর্ম নোটিশ পর্যায়
     if state == S_WAITING_PHRASE:
-        # নিশ্চিতকরণ বাক্য যাচাই
+        # নিশ্চিতকরণ বাক্য যাচাই (rapidfuzz token_set_ratio ব্যবহার করে)
         if token_set_ratio(msg.lower(), bot_config['final_phrase'].lower()) > 90:
             # শর্ত মেনেছে, এখন ফর্ম নোটিশ দেখাবে
             USER_DATA[user_id]["state"] = S_FORM_FILLED
@@ -264,6 +261,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             await update.message.reply_text(slip_text, parse_mode=ParseMode.HTML)
         else:
+             # ইউজার স্লিপ না চাইলে বা অন্য মেসেজ দিলে
              await update.message.reply_text("আপনি যদি ফর্ম পূরণ করে থাকেন, তাহলে স্লিপ পেতে যেকোনো কিছু লিখে রিপ্লাই দিন, যেমন: 'Slip Din'.")
         return
 
@@ -271,7 +269,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state == S_IDLE:
         await update.message.reply_text("আপনি যদি কাজ করতে চান, ভিডিওটি দেখে **'IT'** লিখুন। অন্য কোনো মেসেজ গ্রহণ করা হবে না।")
 
-# --- ADMIN COMMANDS (No Change) ---
+# --- ADMIN COMMANDS ---
 
 async def set_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -301,7 +299,15 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     , parse_mode=ParseMode.MARKDOWN)
 
 def main():
+    # টোকেন চেক
+    if not TOKEN:
+        logger.error("Error: BOT_TOKEN is not set in environment variables.")
+        # এখানে অ্যাপ্লিকেশন রান করা থেকে বিরত থাকা ভালো
+        return
+
     threading.Thread(target=run_flask).start()
+    
+    # টোকেন দিয়ে Application তৈরি করা হচ্ছে
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -311,6 +317,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("Bot is starting...")
+    # এখানে run_polling ব্যবহার করা হয়েছে যা সাধারণত Webhook এর বদলে ছোট অ্যাপের জন্য ব্যবহৃত হয়
     application.run_polling()
 
 if __name__ == "__main__":
