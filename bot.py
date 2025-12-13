@@ -4,7 +4,7 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from fuzzywuzzy import fuzz
+from rapidfuzz.fuzz import token_set_ratio # FIX: Changed from fuzzywuzzy to rapidfuzz
 from flask import Flask
 import threading
 
@@ -41,7 +41,7 @@ bot_config = {
     "video_link": "https://www.youtube.com/", # এডমিন /setvideo দিয়ে এটি পরিবর্তন করবে
     "video_text": "আমাদের গ্রুপে নতুন তাই ভিডিওটি সম্পূর্ণ দেখুন। ভিডিওটি দেখার শেষ হলে, এই বটটিতে গিয়ে 'IT' লিখে সকল প্রশ্নের উত্তর দিবেন।",
     
-    # নতুন এবং বিস্তারিত শর্তাবলী
+    # বিস্তারিত শর্তাবলী
     "terms_text": """
 ⚠️ **আপনাকে এই শর্তগুলো দেওয়া হল, মেনে চলতে হবে** ⚠️
 
@@ -95,14 +95,10 @@ ___
 Admin™<<<<<👈
 """,
     
-    # নতুন নিশ্চিতকরণ বাক্য
     "final_phrase": "ইনশাআল্লাহ আমি পারবো",
-    
-    # ফর্ম লিংক
     "form_link": "https://forms.google.com/your-form-link", # ফর্মের প্রকৃত লিংক এখানে বসবে
 }
 
-# নতুন ফর্ম নোটিশ (ফর্ম লিংকের সাথে দেখানো হবে)
 FORM_NOTICE_TEXT = f"""
 ⚡ **Official Notice – SKYZONE IT** ⚡
 ✅ উত্তর ও শর্ত সঠিক হয়েছে।
@@ -142,10 +138,14 @@ def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 def check_answer_ai(user_text, expected_answers, threshold):
-    """Fuzzy Logic ব্যবহার করে উত্তর যাচাই করে।"""
+    """
+    FIX: rapidfuzz ব্যবহার করে উত্তর যাচাই করে।
+    এটি AI পর্যবেক্ষণ হিসেবে কাজ করে।
+    """
     best_score = 0
     for ans in expected_answers:
-        score = fuzz.token_set_ratio(user_text.lower(), ans.lower())
+        # rapidfuzz এর token_set_ratio ব্যবহার
+        score = token_set_ratio(user_text.lower(), ans.lower())
         if score > best_score:
             best_score = score
     return best_score >= threshold
@@ -193,7 +193,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 1. কাজের শুরু (Trigger: IT)
     if msg.upper() == 'IT':
-        # যদি ইউজার অলরেডি ফর্ম ফিল করে থাকে, তবে তাকে আবার স্লিপ দিতে বলা হবে
         if state == S_FORM_FILLED:
              await update.message.reply_text("আপনি ইতিমধ্যেই সকল ধাপ সম্পন্ন করেছেন। স্লিপ পেতে যেকোনো কিছু লিখে রিপ্লাই দিন, যেমন: 'Slip Din'.")
              return
@@ -237,7 +236,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 4. শর্ত ও ফর্ম নোটিশ পর্যায়
     if state == S_WAITING_PHRASE:
         # নিশ্চিতকরণ বাক্য যাচাই
-        if fuzz.ratio(msg.lower(), bot_config['final_phrase'].lower()) > 90:
+        if token_set_ratio(msg.lower(), bot_config['final_phrase'].lower()) > 90:
             # শর্ত মেনেছে, এখন ফর্ম নোটিশ দেখাবে
             USER_DATA[user_id]["state"] = S_FORM_FILLED
             await update.message.reply_text(FORM_NOTICE_TEXT, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
