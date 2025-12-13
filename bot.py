@@ -1,12 +1,12 @@
 import os
 import logging
 import asyncio
+import threading
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from rapidfuzz.fuzz import token_set_ratio 
 from flask import Flask
-import threading
 
 # --- CONFIGURATION (Load from Environment Variables) ---
 # এই ভেরিয়েবলগুলো Render-এর Environment Variable সেকশনে সেট করতে হবে
@@ -14,7 +14,11 @@ TOKEN = os.environ.get("BOT_TOKEN", "")
 
 # এডমিন আইডি (সংখ্যায়, কমা দিয়ে একাধিক আইডি)
 admin_ids_str = os.environ.get("ADMIN_IDS", "")
-ADMIN_IDS = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
+# এরর এড়ানোর জন্য ট্রাই-এক্সেপ্ট ব্লক ব্যবহার করা হয়েছে যদি কেউ ভুল ইনপুট দেয়
+try:
+    ADMIN_IDS = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
+except:
+    ADMIN_IDS = []
 
 GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID", "")
 
@@ -27,8 +31,8 @@ def home():
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
-    # Flask রিকোয়েস্ট হ্যান্ডেল করার জন্য (এটি Render-কে বোঝায় যে অ্যাপ চলছে)
-    app.run(host='0.0.0.0', port=port)
+    # use_reloader=False জরুরি যাতে ডাবল প্রসেস রান না হয়
+    app.run(host='0.0.0.0', port=port, use_reloader=False)
 
 # --- LOGGING ---
 logging.basicConfig(
@@ -36,13 +40,14 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+# httpx এর লগ লেভেল কমানো হলো যাতে কনসোল ক্লিয়ার থাকে
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # --- GLOBAL VARIABLES ---
 bot_config = {
     "video_link": "https://www.youtube.com/", 
     "video_text": "আমাদের গ্রুপে নতুন তাই ভিডিওটি সম্পূর্ণ দেখুন। ভিডিওটি দেখার শেষ হলে, এই বটটিতে গিয়ে 'IT' লিখে সকল প্রশ্নের উত্তর দিবেন।",
     
-    # বিস্তারিত শর্তাবলী
     "terms_text": """
 ⚠️ **আপনাকে এই শর্তগুলো দেওয়া হল, মেনে চলতে হবে** ⚠️
 
@@ -52,7 +57,7 @@ bot_config = {
 
 3️⃣ সময় মেনে চলা: অ্যাপস যে সময় দেওয়া থাকবে, সেই সময় থেকেই কাজ শুরু করবেন।
 
-4️⃣ একটি ফোন, একটি জিমেইল: আপনি যে অ্যাপে একবার রিভিউ দিবেন, একটি ফোন ও একটি জিমেইল দিয়ে। ওই অ্যাপে যে ফোন দিয়ে রিভিউ দিয়েছেন, সেই ফোন দিয়ে আর রিভিউ দেওয়া যাবে না। ওই অ্যাপে
+4️⃣ একটি ফোন, একটি জিমেইল: আপনি যে অ্যাপে একবার রিভিউ দিবেন, একটি ফোন ও একটি জিমেইল দিয়ে। ওই অ্যাপে যে ফোন দিয়ে রিভিউ দিয়েছেন, সেই ফোন দিয়ে আর রিভিউ দেওয়া যাবে না।
 
 5️⃣ নতুন মানুষ আনা: মনে রাখবেন, আপনি যেভাবে এখানে এসেছেন, ঠিক সেইভাবেই অন্যদেরও নিয়ে আসবেন।
 
@@ -135,12 +140,14 @@ S_IDLE, S_READY_CHECK, S_INTERVIEW, S_WAITING_PHRASE, S_FORM_FILLED = range(5)
 # --- HELPER FUNCTIONS ---
 
 def is_admin(user_id):
-    """চেক করে ইউজার এডমিন কিনা (ID ব্যবহার করে)"""
+    """চেক করে ইউজার এডমিন কিনা"""
     return user_id in ADMIN_IDS
 
 def check_answer_ai(user_text, expected_answers, threshold):
     """rapidfuzz ব্যবহার করে উত্তর যাচাই করে।"""
     best_score = 0
+    if not user_text: return False
+    
     for ans in expected_answers:
         score = token_set_ratio(user_text.lower(), ans.lower())
         if score > best_score:
@@ -154,6 +161,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_type = update.effective_chat.type
 
     if chat_type in ['group', 'supergroup']:
+        # গ্রুপে স্টার্ট দিলে কিছু করবে না বা চাইলে ওয়েলকাম দিতে পারেন
         pass
     else:
         await update.message.reply_text(
@@ -170,6 +178,7 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    # টেক্সট চেক করা হচ্ছে যেন None না হয়
     msg = update.message.text.strip() if update.message.text else ""
     chat_type = update.effective_chat.type
     user_id = user.id
@@ -212,8 +221,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 3. ইন্টারভিউ চলাকালীন
     if state == S_INTERVIEW:
         idx = USER_DATA[user_id]["q_index"]
+        # ইনডেক্স চেক, যাতে ক্র্যাশ না করে
+        if idx >= len(questions_db):
+             USER_DATA[user_id]["state"] = S_WAITING_PHRASE
+             await update.message.reply_text(f"আপনার প্রশ্ন শেষ।\n{bot_config['terms_text']}")
+             return
+
         current_q = questions_db[idx]
-        
         is_correct = check_answer_ai(msg, current_q['a'], current_q['threshold'])
         
         if is_correct:
@@ -248,7 +262,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if any(word in msg.lower() for word in ['form done', 'slip din', 'dan', 'din', 'dakhaw']):
             answers = USER_DATA[user_id]["answers"]
             slip_text = f"📄 **SKYZONE IT - RECRUITMENT SLIP**\n"
-            # ইউজার আইডি HTML কোড ট্যাগ এর মধ্যে দেওয়া হয়েছে যেন সহজে কপি করা যায়
             slip_text += f"User: {user.mention_html()} (ID: <code>{user_id}</code>)\n" 
             slip_text += f"Status: Passed ✅\n\n"
             
@@ -298,17 +311,20 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Passed Exam: {passed_users}"
     , parse_mode=ParseMode.MARKDOWN)
 
-# --- MAIN FUNCTION (Critical Fix Applied Here - Use start_polling() instead of run_polling()) ---
+# --- MAIN FUNCTION ---
 def main():
     # টোকেন চেক
     if not TOKEN:
-        logger.error("Error: BOT_TOKEN is not set in environment variables. Please check your Render configuration.")
+        logger.error("Error: BOT_TOKEN is not set in environment variables.")
         return
 
-    # 1. Flask সার্ভার চালু করা হচ্ছে (Render কে বাঁচিয়ে রাখার জন্য)
-    threading.Thread(target=run_flask).start()
+    # 1. Flask সার্ভার চালু করা (Daemon Thread হিসেবে)
+    # Daemon thread ব্যবহার করলে মেইন প্রোগ্রাম বন্ধ হলে ফ্লাস্কও বন্ধ হবে, এরর কম হবে
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
     
-    # 2. টেলিগ্রাম বট Application তৈরি করা হচ্ছে
+    # 2. টেলিগ্রাম বট Application তৈরি
     try:
         application = Application.builder().token(TOKEN).build()
     except Exception as e:
@@ -322,13 +338,19 @@ def main():
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_member))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Telegram Bot is starting to listen...")
-    # 3. পোলিং শুরু করা হচ্ছে: run_polling() এর বদলে start_polling() ব্যবহার করা হচ্ছে যা Render এর ব্যাকগ্রাউন্ডে ভালো কাজ করে।
+    print("Telegram Bot is starting...")
+    
+    # 3. পোলিং শুরু (আপডেটেড কনফিগারেশন)
+    # drop_pending_updates=True দিলে পুরনো মেসেজ প্রসেস করে ক্র্যাশ করবে না
+    # allowed_updates=Update.ALL_TYPES নিশ্চিত করে সব ধরণের আপডেট হ্যান্ডেল হবে
     try:
-        # run_polling() ব্যবহার না করে start_polling() ব্যবহার করা হয়েছে যা একটি নন-ব্লকিং অপারেশন।
-        application.run_polling(timeout=20) # timeout 20 সেকেন্ড রাখা হলো
+        application.run_polling(
+            allowed_updates=Update.ALL_TYPES, 
+            drop_pending_updates=True,
+            close_loop=False # Render/Asyncio কনফ্লিক্ট এড়ানোর জন্য
+        )
     except Exception as e:
-        logger.error(f"Error during bot polling: {e}")
+        logger.error(f"Critical Error in polling: {e}")
 
 if __name__ == "__main__":
     main()
