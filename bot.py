@@ -76,7 +76,7 @@ bot_config = {
 — SKYZONE IT Admin™
 """,
     "final_phrase": "ইনশাআল্লাহ আমি পারবো",
-    "form_link": "https://forms.google.com/your-form-link", 
+    "form_link": "https://forms.gle/TYdZFiFEJcrDcD2r5", 
     "admin_username": "@AfMdshakil" 
 }
 
