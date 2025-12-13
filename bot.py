@@ -4,7 +4,7 @@ import asyncio
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from rapidfuzz.fuzz import token_set_ratio # Stable library for fuzzy matching
+from rapidfuzz.fuzz import token_set_ratio 
 from flask import Flask
 import threading
 
@@ -27,7 +27,7 @@ def home():
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
-    # Flask রিকোয়েস্ট হ্যান্ডেল করার জন্য
+    # Flask রিকোয়েস্ট হ্যান্ডেল করার জন্য (এটি Render-কে বোঝায় যে অ্যাপ চলছে)
     app.run(host='0.0.0.0', port=port)
 
 # --- LOGGING ---
@@ -298,27 +298,37 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Passed Exam: {passed_users}"
     , parse_mode=ParseMode.MARKDOWN)
 
+# --- MAIN FUNCTION (Critical Fix Applied Here) ---
 def main():
     # টোকেন চেক
     if not TOKEN:
-        logger.error("Error: BOT_TOKEN is not set in environment variables.")
-        # এখানে অ্যাপ্লিকেশন রান করা থেকে বিরত থাকা ভালো
+        logger.error("Error: BOT_TOKEN is not set in environment variables. Please check your Render configuration.")
         return
 
+    # 1. Flask সার্ভার চালু করা হচ্ছে (Render কে বাঁচিয়ে রাখার জন্য)
     threading.Thread(target=run_flask).start()
     
-    # টোকেন দিয়ে Application তৈরি করা হচ্ছে
-    application = Application.builder().token(TOKEN).build()
+    # 2. টেলিগ্রাম বট Application তৈরি করা হচ্ছে
+    try:
+        application = Application.builder().token(TOKEN).build()
+    except Exception as e:
+        logger.error(f"Error initializing Application: {e}")
+        return
 
+    # Handlers যোগ করা
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("setvideo", set_video))
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_member))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Bot is starting...")
-    # এখানে run_polling ব্যবহার করা হয়েছে যা সাধারণত Webhook এর বদলে ছোট অ্যাপের জন্য ব্যবহৃত হয়
-    application.run_polling()
+    print("Telegram Bot is starting to listen...")
+    # 3. পোলিং শুরু করা হচ্ছে (যা নতুন মেসেজ শুনবে)
+    try:
+        # run_polling() ব্যবহার করা হয়েছে, যা Bot কে চলতে সাহায্য করে
+        application.run_polling()
+    except Exception as e:
+        logger.error(f"Error during bot polling: {e}")
 
 if __name__ == "__main__":
     main()
