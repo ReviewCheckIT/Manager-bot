@@ -11,21 +11,18 @@ from flask import Flask
 
 # --- CONFIGURATION ---
 
-# আপনি চ্যাটে যে তথ্য দিয়েছেন তা এখানে ডিফল্ট হিসেবে রাখা হয়েছে
-# তবে Render-এ Environment Variable সেট করা সবথেকে নিরাপদ।
-
 TOKEN = os.environ.get("BOT_TOKEN", "")
 
-# এডমিন আইডি হ্যান্ডলিং (স্ট্রং করা হয়েছে)
+# এডমিন আইডি হ্যান্ডলিং
 admin_ids_str = os.environ.get("ADMIN_IDS", "7870088579,7259050773")
 try:
     ADMIN_IDS = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
 except:
-    ADMIN_IDS = [7870088579, 7259050773] # Fallback if error
+    ADMIN_IDS = [7870088579, 7259050773] 
 
 GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID", "-1002337825231")
 
-# --- FLASK SERVER (To Keep Bot Alive) ---
+# --- FLASK SERVER ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -33,9 +30,7 @@ def home():
     return "Skyzone IT Bot is Running and Active!"
 
 def run_flask():
-    # পোর্ট এনভায়রনমেন্ট থেকে নিবে অথবা 10000 ব্যবহার করবে
     port = int(os.environ.get("PORT", 10000))
-    # use_reloader=False জরুরি
     app.run(host='0.0.0.0', port=port, use_reloader=False)
 
 # --- LOGGING ---
@@ -44,7 +39,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-# httpx এর লগ কমানো হলো
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # --- GLOBAL VARIABLES & TEXTS ---
@@ -97,7 +91,7 @@ FORM_NOTICE_TEXT = f"""
 
 # --- QUESTIONS DB ---
 questions_db = [
-    {"id": 1, "q": "1️⃣ আপনি কি ভিডিওটি সম্পূর্ণ মনোযোগ দিয়ে দেখেছেন?", "a": ["hea", "ji", "yes", "ha",  "সম্পূর্ণ ভিডিও দেখছি", "দেখছি", "জি", "ho", "dekhsi"], "threshold": 70},
+    {"id": 1, "q": "1️⃣ আপনি কি ভিডিওটি সম্পূর্ণ মনোযোগ দিয়ে দেখেছেন?", "a": ["hea", "ji", "yes", "ha",  "সম্পূর্ণ ভিডিও দেখছি", "देख़छि", "জি", "ho", "dekhsi"], "threshold": 70},
     {"id": 2, "q": "2️⃣ ভিডিও দেখে আপনি কী বুঝেছেন?", "a": ["Kivabe app use Korte hobe", "ভিডিওটি দেখে বুঝতে পারছি আমি যেভাবে এখানে আইসি সেভাবেই অন্যদেরকে নিয়ে আসতে হবে", "পরবর্তী", "ভিডিও দেখে সকল কিছু শিখতে পারলাম", "Facebook e post kore user k telegram e aina", "review apnder app e submit dite hobe", "marketing korbo", "apps review"], "threshold": 50},
     {"id": 3, "q": "3️⃣ আপনি কোন ফোন থেকে রিভিউ দেবেন? (নিজের/পরিবারের ফোন ও একই লোকেশন নিষিদ্ধ)", "a": ["ami nijer phn theke review dibo na", "অন্যদের ফোন থেকে", "মার্কেটিং করে অন্যদের ফোন থেকে রিভিউ দেওয়াতে হবে", "review amr worker dibe", "worker er phone", "onno manush diye", "user er phone"], "threshold": 60},
     {"id": 4, "q": "4️⃣ আপনি মোট কয়টি রিভিউ দিতে পারবেন?", "a": ["joto golo limit thakbe", "5 tar moto", "ফেসবুক এবং টেলিগ্রামের বিভিন্ন গ্রুপ থেকে মেম্বার খুজে তাদের ফোন থেকে রিভিউ দেওয়াবো, এবং তাদের রিভিৎ এপ্রুভ হলে তাদেরকে গ্রুপে এড করে দিবো।", "অ্যাপে যে লিমিট দেওয়া থাকবে ওই অনুযায়ী দিতে পারব", "অ্যাপের নির্দেশনা অনুযায়ী দিতে পারব", "unlimited", "jotogula lagbe"], "threshold": 50},
@@ -115,14 +109,11 @@ S_IDLE, S_READY_CHECK, S_INTERVIEW, S_WAITING_PHRASE, S_FORM_FILLED = range(5)
 # --- HELPER FUNCTIONS ---
 
 def is_admin(user_id):
-    """চেক করে ইউজার এডমিন কিনা"""
     return user_id in ADMIN_IDS
 
 def check_answer_ai(user_text, expected_answers, threshold):
-    """rapidfuzz ব্যবহার করে উত্তর যাচাই করে।"""
     best_score = 0
     if not user_text: return False
-    
     for ans in expected_answers:
         score = token_set_ratio(user_text.lower(), ans.lower())
         if score > best_score:
@@ -131,17 +122,14 @@ def check_answer_ai(user_text, expected_answers, threshold):
 
 # --- STARTUP NOTIFICATION ---
 async def post_init(application: Application):
-    """বট চালু হলে গ্রুপে মেসেজ পাঠাবে"""
     logger.info("Bot is starting up...")
     try:
-        # গ্রুপ চ্যাট আইডি যদি স্ট্রিং হয়, ইনটিজারে কনভার্ট করার চেষ্টা
         chat_id = int(GROUP_CHAT_ID)
         await application.bot.send_message(
             chat_id=chat_id,
             text="🟢 **Skyzone IT Bot is Online!**\nSystem is ready to take interviews.",
             parse_mode=ParseMode.MARKDOWN
         )
-        logger.info("Startup message sent to group.")
     except Exception as e:
         logger.error(f"Failed to send startup message: {e}")
 
@@ -150,11 +138,7 @@ async def post_init(application: Application):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat_type = update.effective_chat.type
-
-    if chat_type in ['group', 'supergroup']:
-        # গ্রুপে কেউ /start দিলে কিছু হবে না
-        pass
-    else:
+    if chat_type not in ['group', 'supergroup']:
         await update.message.reply_text(
             f"হ্যালো {user.first_name} 👋\n\nআপনি যদি কাজ শুরু করতে চান, তাহলে গ্রুপের পিন করা ভিডিওটি দেখুন এবং এখানে **'IT'** লিখে মেসেজ দিন।"
         )
@@ -174,29 +158,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not msg: return
 
-    # গ্রুপ লজিক - কেউ গ্রুপে IT লিখলে তাকে ইনবক্সে যেতে বলবে
     if chat_type in ['group', 'supergroup']:
         if msg.upper() == "IT":
             await update.message.reply_text(f"{user.mention_html()}, কাজের জন্য আমাকে ইনবক্সে (Private Message) 'IT' লিখুন। এখানে নয়।", parse_mode=ParseMode.HTML)
         return
 
-    # প্রাইভেট চ্যাট লজিক
     if user_id not in USER_DATA:
         USER_DATA[user_id] = {"state": S_IDLE, "answers": [], "q_index": 0}
 
     state = USER_DATA[user_id]["state"]
 
-    # 1. কাজের শুরু (Trigger: IT)
     if msg.upper() == 'IT':
         if state == S_FORM_FILLED:
-             await update.message.reply_text("আপনি ইতিমধ্যেই সকল ধাপ সম্পন্ন করেছেন। স্লিপ পেতে যেকোনো কিছু লিখে রিপ্লাই দিন, যেমন: 'Slip Din'.")
+             await update.message.reply_text("আপনি ইতিমধ্যেই সকল ধাপ সম্পন্ন করেছেন। স্লিপ পেতে যেকোনো কিছু লিখে রিপ্লাই দিন।")
              return
-
         USER_DATA[user_id] = {"state": S_READY_CHECK, "answers": [], "q_index": 0}
         await update.message.reply_text("আপনি কি ১০টি প্রশ্নের উত্তর দিতে প্রস্তুত?\n(উত্তর দিন: Yes / Ready / প্রস্তুত)")
         return
 
-    # 2. রেডি চেক
     if state == S_READY_CHECK:
         if any(word in msg.lower() for word in ['yes', 'ready', 'ha', 'hea', 'ji', 'prostut', 'start']):
             USER_DATA[user_id]["state"] = S_INTERVIEW
@@ -204,15 +183,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             q_data = questions_db[0]
             await update.message.reply_text(f"চমৎকার! শুরু করছি।\n\n{q_data['q']}")
         else:
-            await update.message.reply_text("আপনি প্রস্তুত হলে 'Yes' বা 'Ready' লিখুন। অন্যথায় ভিডিওটি আবার দেখুন।")
+            await update.message.reply_text("আপনি প্রস্তুত হলে 'Yes' বা 'Ready' লিখুন।")
         return
 
-    # 3. ইন্টারভিউ চলাকালীন
     if state == S_INTERVIEW:
         idx = USER_DATA[user_id]["q_index"]
         if idx >= len(questions_db):
              USER_DATA[user_id]["state"] = S_WAITING_PHRASE
-             await update.message.reply_text(f"আপনার প্রশ্ন শেষ।\n{bot_config['terms_text']}")
+             await update.message.reply_text(f"{bot_config['terms_text']}")
              return
 
         current_q = questions_db[idx]
@@ -228,10 +206,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 USER_DATA[user_id]["state"] = S_WAITING_PHRASE
                 await update.message.reply_text(f"অভিনন্দন! আপনি ১০টি প্রশ্নের সঠিক উত্তর দিয়েছেন। 🎉\n{bot_config['terms_text']}")
         else:
-            await update.message.reply_text("❌ আপনার উত্তর সঠিক নয়। ভিডিওটি ভালো করে দেখে থাকলে আবার চেষ্টা করুন।\n(সঠিক উত্তর দিয়ে আবার মেসেজ দিন)")
+            await update.message.reply_text("❌ আপনার উত্তর সঠিক নয়। আবার চেষ্টা করুন।")
         return
 
-    # 4. শর্ত ও ফর্ম নোটিশ পর্যায়
     if state == S_WAITING_PHRASE:
         if token_set_ratio(msg.lower(), bot_config['final_phrase'].lower()) > 90:
             USER_DATA[user_id]["state"] = S_FORM_FILLED
@@ -241,107 +218,69 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"বাক্যটি সঠিক হয়নি। হুবহু লিখুন:\n`{bot_config['final_phrase']}`", parse_mode=ParseMode.MARKDOWN)
         return
 
-    # 5. স্লিপ জেনারেশন পর্যায় (✅ স্লিপ শুধুমাত্র এই শেষ স্টেজে দেওয়া হবে)
     if state == S_FORM_FILLED:
         if any(word in msg.lower() for word in ['form done', 'slip din', 'dan', 'din', 'dakhaw']):
             answers = USER_DATA[user_id]["answers"]
             
-            # --- মেসেজ ১: স্লিপ তৈরি (এখানে স্লিপের কন্টেন্ট থাকবে) ---
+            # স্লিপ টেক্সট তৈরি
             slip_text = f"📄 **SKYZONE IT - RECRUITMENT SLIP**\n"
             slip_text += f"User: {user.mention_html()} (ID: <code>{user_id}</code>)\n" 
             slip_text += f"Status: Passed ✅\n\n"
             for ans in answers:
                 q_short = ans['q'].split(' ')[0] 
                 slip_text += f"**{q_short}** {ans['a']}\n"
-            
+
+            # --- নতুন আপডেট: এডমিনদের কাছে অটোমেটিক কপি পাঠানো ---
+            admin_msg = f"📩 **NEW RECRUITMENT REPORT**\n\n" + slip_text
+            for admin_id in ADMIN_IDS:
+                try:
+                    await context.bot.send_message(chat_id=admin_id, text=admin_msg, parse_mode=ParseMode.HTML)
+                except Exception as e:
+                    logger.error(f"Could not send log to admin {admin_id}: {e}")
+
+            # --- ইউজারকে স্লিপ দেখানো ---
             await update.message.reply_text(slip_text, parse_mode=ParseMode.HTML) 
 
-            # --- মেসেজ ২: এডমিনকে যোগাযোগের নির্দেশিকা (পরের মেসেজ) ---
             admin_instruction = f"""
 ✅ **অভিনন্দন!**
 
-আপনার স্লিপটি কপি করুন এবং অ্যাপ ও কাজ নেওয়ার জন্য এখনই এডমিনকে পাঠান।
+আপনার স্লিপটি কপি করুন এবং অ্যাপ ও কাজ নেওয়ার জন্য এখনই এডমিনকে পাঠান। (বট থেকে আপনার রিপোর্টটি অলরেডি এডমিনের কাছে সংরক্ষিত হয়েছে)
 
 👉 এডমিন: <a href='https://t.me/{bot_config['admin_username'].lstrip('@')}'>{bot_config['admin_username']}</a>
 """
             await update.message.reply_text(admin_instruction, parse_mode=ParseMode.HTML) 
-
         else:
-             await update.message.reply_text("ফর্ম পূরণ করে থাকলে স্লিপ পেতে যেকোনো কিছু লিখে রিপ্লাই দিন, যেমন: 'Slip Din'.")
+             await update.message.reply_text("স্লিপ পেতে 'Slip Din' লিখুন।")
         return
 
     if state == S_IDLE:
-        await update.message.reply_text("আপনি যদি কাজ করতে চান, ভিডিওটি দেখে **'IT'** লিখুন। অন্য কোনো মেসেজ গ্রহণ করা হবে না।")
+        await update.message.reply_text("কাজ করতে ভিডিওটি দেখে **'IT'** লিখুন।")
 
 # --- ADMIN COMMANDS ---
-
 async def set_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    if not is_admin(user.id):
-        await update.message.reply_text("⛔ আপনি এডমিন নন।")
-        return
-    
+    if not is_admin(update.effective_user.id): return
     if context.args:
-        new_link = context.args[0]
-        bot_config['video_link'] = new_link
-        await update.message.reply_text(f"✅ ভিডিও লিংক আপডেট করা হয়েছে:\n{new_link}")
-    else:
-        await update.message.reply_text("ব্যবহারবিধি: `/setvideo https://youtu.be/xxxx`", parse_mode=ParseMode.MARKDOWN)
+        bot_config['video_link'] = context.args[0]
+        await update.message.reply_text(f"✅ আপডেট হয়েছে: {context.args[0]}")
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    if not is_admin(user.id):
-        return
-    total_users = len(USER_DATA)
-    passed_users = sum(1 for u in USER_DATA.values() if u['state'] == S_FORM_FILLED)
-    await update.message.reply_text(
-        f"📊 **User Statistics:**\nTotal Interactions: {total_users}\nPassed Exam: {passed_users}", 
-        parse_mode=ParseMode.MARKDOWN
-    )
+    if not is_admin(update.effective_user.id): return
+    await update.message.reply_text(f"📊 Total: {len(USER_DATA)}\nPassed: {sum(1 for u in USER_DATA.values() if u['state'] == S_FORM_FILLED)}")
 
-# --- MAIN FUNCTION ---
+# --- MAIN ---
 def main():
-    if not TOKEN:
-        logger.error("Error: BOT_TOKEN is missing.")
-        return
-
-    # Flask Thread (Daemon)
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
+    if not TOKEN: return
+    threading.Thread(target=run_flask, daemon=True).start()
     
-    # Telegram App with Timeout Settings (To prevent silent crashes)
-    try:
-        application = (
-            Application.builder()
-            .token(TOKEN)
-            .post_init(post_init) # বট চালু হলে গ্রুপে মেসেজ যাবে
-            .read_timeout(30) # নেটওয়ার্ক স্লো হলে অপেক্ষা করবে
-            .write_timeout(30)
-            .build()
-        )
-    except Exception as e:
-        logger.error(f"Error initializing Application: {e}")
-        return
+    application = Application.builder().token(TOKEN).post_init(post_init).build()
 
-    # Handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("setvideo", set_video))
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_member))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Telegram Bot is starting polling...")
-    
-    # Polling with Error Handling
-    try:
-        application.run_polling(
-            allowed_updates=Update.ALL_TYPES, 
-            drop_pending_updates=True,
-            close_loop=False
-        )
-    except Exception as e:
-        logger.error(f"Critical Error in polling: {e}")
+    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
