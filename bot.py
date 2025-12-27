@@ -74,12 +74,14 @@ bot_config = {
     "form_link": "https://forms.gle/TYdZFiFEJcrDcD2r5",
 }
 
-FORM_NOTICE_TEXT = f""" ⚡ **Official Notice – SKYZONE IT** ⚡ 
+FORM_NOTICE_TEXT = f""" ⚡ Official Notice – SKYZONE IT ⚡ 
 ✅ উত্তর ও শর্ত সঠিক হয়েছে। 
 📋 এখন নিচের ফর্মটি পূরণ করুন: 
 🔗 <a href='{bot_config["form_link"]}'>Form Link👈</a> 
-📸 ফর্ম সাবমিট করে স্ক্রিনশট দিন। 
-⚠️ **নিয়মাবলী:** 1. একই লোকেশন/ফ্যামিলি থেকে একাধিক রিভিউ ❌ 
+📸 ফর্ম সাবমিট করে স্ক্রিনশট এডমিনকে পাঠিয়ে দেবেন। 
+
+⚠️ নিয়মাবলী:
+1. একই লোকেশন/ফ্যামিলি থেকে একাধিক রিভিউ ❌ 
 2. ভুল তথ্য একাধিক ❌ 
 📩 — Skyzone IT | Admin """
 
@@ -256,12 +258,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # স্লিপ ডিজাইন
             slip_text = (
-                f"📄 **SKYZONE IT - RECRUITMENT SLIP**\n"
+                f"📄 SKYZONE IT - RECRUITMENT SLIP\n"
                 f"━━━━━━━━━━━━━━━━━━━\n"
-                f"👤 **User:** {user.first_name} (@{user.username if user.username else 'N/A'})\n"
-                f"🆔 **User ID:** <code>{user_id}</code>\n"
-                f"👨‍🏫 **Admins:** {admin_list_text}\n"
-                f"✅ **Status:** Passed Exam\n"
+                f"👤 User: {user.first_name} (@{user.username if user.username else 'N/A'})\n"
+                f"🆔 User ID: <code>{user_id}</code>\n"
+                f"👨‍🏫 Admins: {admin_list_text}\n"
+                f"✅ Status: Passed Exam\n"
                 f"━━━━━━━━━━━━━━━━━━━\n\n"
             )
             for ans in answers:
