@@ -162,7 +162,7 @@ async def handle_group_questions(update: Update, context: ContextTypes.DEFAULT_T
     if user_id not in USER_DATA or USER_DATA[user_id]["state"] != S_FORM_FILLED:
         trigger_phrases = [
             "আমি নতুন", "কিভাবে কাজ করতে হবে", "কাজ কি", "কি কাজ", 
-            "আমি আপনাদের গ্রুপে নতুন", "আমাকে কাজ শিখিয়ে দিন", "এডমিন আপনি আমাকে কাজ বুঝিয়ে দিন", "ami new", "ami new number"
+            "আমি আপনাদের গ্রুপে নতুন", "আমাকে কাজ শিখিয়ে দিন", "এডমিন আপনি আমাকে কাজ বুঝিয়ে দিন", "ami new", "ami new number", "Hi", "hello"
         ]
         
         should_respond = any(phrase.lower() in msg for phrase in trigger_phrases)
@@ -258,11 +258,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # স্লিপ ডিজাইন
             slip_text = (
-                f"📄 SKYZONE IT - RECRUITMENT SLIP\n"
+                f"📄 **SKYZONE IT - RECRUITMENT SLIP\n"**
                 f"━━━━━━━━━━━━━━━━━━━\n"
-                f"👤 User: {user.first_name} (@{user.username if user.username else 'N/A'})\n"
-                f"🆔 User ID: <code>{user_id}</code>\n"
-                f"👨‍🏫 Admins: {admin_list_text}\n"
+                f"👤 **User:** {user.first_name} (@{user.username if user.username else 'N/A'})\n"
+                f"🆔 **User ID:** <code>{user_id}</code>\n"
+                f"👨‍🏫 **Admins:** {admin_list_text}\n"
                 f"✅ Status: Passed Exam\n"
                 f"━━━━━━━━━━━━━━━━━━━\n\n"
             )
