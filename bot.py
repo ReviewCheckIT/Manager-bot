@@ -258,7 +258,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # স্লিপ ডিজাইন
             slip_text = (
-                f"📄 **SKYZONE IT - RECRUITMENT SLIP\n"**
+                f"📄 **SKYZONE IT - RECRUITMENT SLIP**\n"
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"👤 **User:** {user.first_name} (@{user.username if user.username else 'N/A'})\n"
                 f"🆔 **User ID:** <code>{user_id}</code>\n"
