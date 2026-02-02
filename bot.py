@@ -79,7 +79,7 @@ async def async_firestore_set(doc_ref, data, merge=True):
 def check_answer_with_groq(question, user_answer, expected_context):
     """
     Groq API ব্যবহার করে উত্তর যাচাই করবে।
-    এখানে প্রম্পট আরও উন্নত করা হয়েছে যাতে ভুল হওয়ার সম্ভাবনা না থাকে।
+    MODEL UPDATE: llama3-70b-8192 -> llama-3.3-70b-versatile
     """
     if not GROQ_API_KEY:
         return False 
@@ -103,12 +103,13 @@ def check_answer_with_groq(question, user_answer, expected_context):
     user_prompt = f"Question: {question}\nExpected Context: {expected_context}\nUser Answer: {user_answer}\nIs it correct? (YES/NO):"
 
     data = {
-        "model": "llama3-70b-8192", # দ্রুত এবং নির্ভুল উত্তরের জন্য বড় মডেল ব্যবহার করা হয়েছে
+        # 🔴 আগের মডেল বাতিল হয়েছে, তাই নতুন মডেল ব্যবহার করা হলো
+        "model": "llama-3.3-70b-versatile", 
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "temperature": 0.1, # 0.1 দিলে AI ফালতু কথা কম বলে, লজিক বেশি মানে
+        "temperature": 0.1, 
         "max_tokens": 10
     }
 
@@ -119,12 +120,13 @@ def check_answer_with_groq(question, user_answer, expected_context):
             # AI যদি 'Yes.' বা 'The answer is YES' লিখেও ফেলে, তাও এটি ধরতে পারবে
             return "YES" in result
         else:
+            # ডিবাগিংয়ের জন্য এরর প্রিন্ট করা হলো
             logger.error(f"Groq API Error: {response.text}")
             return False 
     except Exception as e:
         logger.error(f"Groq Connection Error: {e}")
         return False
-
+        
 async def async_ai_validate(question, user_answer, expected_keywords):
     loop = asyncio.get_running_loop()
     # Keywords গুলোকে একটি স্ট্রিংয়ে কনভার্ট করে AI কে দেওয়া হবে কন্টেক্সট হিসেবে
