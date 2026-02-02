@@ -2,3 +2,5 @@ python-telegram-bot>=21.3
 firebase-admin
 Flask>=3.0.0
 rapidfuzz>=3.0.0
+gunicorn
+groq
