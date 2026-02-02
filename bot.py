@@ -79,10 +79,10 @@ async def async_firestore_set(doc_ref, data, merge=True):
 def check_answer_with_groq(question, user_answer, expected_context):
     """
     Groq API ব্যবহার করে উত্তর যাচাই করবে।
-    এটি থ্রেডপুলে রান হবে যাতে বট স্লো না হয়।
+    এখানে প্রম্পট আরও উন্নত করা হয়েছে যাতে ভুল হওয়ার সম্ভাবনা না থাকে।
     """
     if not GROQ_API_KEY:
-        return False # API Key না থাকলে ফেইল করাবে
+        return False 
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -90,44 +90,39 @@ def check_answer_with_groq(question, user_answer, expected_context):
         "Content-Type": "application/json"
     }
 
-    # প্রম্পট ইঞ্জিনিয়ারিং: AI কে বলা হচ্ছে সে একজন পরীক্ষক
+    # AI-কে আরও কড়া ইন্সট্রাকশন দেওয়া হলো
     system_prompt = (
-        "You are a strict recruitment exam evaluator for a Bangladeshi IT Support group. "
-        "Analyze the User's Answer strictly based on the Question and Expected Context/Keywords. "
-        "The user will answer in Bengali or Banglish. "
-        "If the answer matches the intent of the expected context, return 'YES'. "
-        "If the answer is irrelevant, wrong, or nonsense, return 'NO'. "
-        "Do not explain. Just reply YES or NO."
+        "You are an expert examiner. Your task is to verify if the user's answer is correct "
+        "based on the given question and reference keywords. "
+        "User will answer in Bengali or English. "
+        "If the answer is logically correct or matches the meaning, respond ONLY with 'YES'. "
+        "If it's wrong, respond ONLY with 'NO'. "
+        "Do not provide any explanation, punctuation, or other words."
     )
 
-    user_prompt = f"""
-    Question: {question}
-    Expected Key Points: {expected_context}
-    User Answer: {user_answer}
-    
-    Is this answer correct?
-    """
+    user_prompt = f"Question: {question}\nExpected Context: {expected_context}\nUser Answer: {user_answer}\nIs it correct? (YES/NO):"
 
     data = {
-        "model": "llama3-8b-8192", # অথবা "mixtral-8x7b-32768" যা আপনার পছন্দ
+        "model": "llama3-70b-8192", # দ্রুত এবং নির্ভুল উত্তরের জন্য বড় মডেল ব্যবহার করা হয়েছে
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "temperature": 0.2, # কম টেম্পারেচার মানে বেশি সঠিক এবং কম ক্রিয়েটিভ উত্তর
-        "max_tokens": 5
+        "temperature": 0.1, # 0.1 দিলে AI ফালতু কথা কম বলে, লজিক বেশি মানে
+        "max_tokens": 10
     }
 
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=5)
+        response = requests.post(url, headers=headers, json=data, timeout=7)
         if response.status_code == 200:
             result = response.json()['choices'][0]['message']['content'].strip().upper()
+            # AI যদি 'Yes.' বা 'The answer is YES' লিখেও ফেলে, তাও এটি ধরতে পারবে
             return "YES" in result
         else:
-            logging.error(f"Groq API Error: {response.text}")
-            return False # API এরর হলে সেইফটির জন্য ফলস
+            logger.error(f"Groq API Error: {response.text}")
+            return False 
     except Exception as e:
-        logging.error(f"Groq Connection Error: {e}")
+        logger.error(f"Groq Connection Error: {e}")
         return False
 
 async def async_ai_validate(question, user_answer, expected_keywords):
